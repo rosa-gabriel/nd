@@ -593,6 +593,7 @@ dependencies = [
 name = "nd"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "clap",
  "reqwest",
  "serde",

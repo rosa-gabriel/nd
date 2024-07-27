@@ -15,6 +15,21 @@ pub struct BodyConfig {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct BasicAuthConfig {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AuthConfig {
+    pub resource: String,
+    pub kind: String,
+    pub basic: Option<BasicAuthConfig>,
+    pub bearer: Option<String>,
+    pub header_name: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct FileConfig {
     pub url: String,
     pub method: String,
@@ -22,15 +37,16 @@ pub struct FileConfig {
     pub form: Option<HashMap<String, String>>,
     pub timeout: Option<u64>,
     pub body: Option<BodyConfig>,
+    pub auth: Option<String>,
 }
 
 pub async fn get_file_config(path: &Path) -> Result<FileConfig, Error> {
     let file_contents = match fs::read_to_string(path).await {
         Ok(file_contents) => file_contents,
-        Err(e) => {
+        Err(_) => {
             let formated_error = format!("Failed to read config file at path {}\n", path.to_string_lossy());
             io::stderr().write(formated_error.as_bytes()).await.unwrap();
-            return Err(Error::IOError(e));
+            return Err(Error::IOError);
         },
     };
 
@@ -38,6 +54,28 @@ pub async fn get_file_config(path: &Path) -> Result<FileConfig, Error> {
         Ok(file_config) => file_config,
         Err(e) => {
             let formated_error = format!("{} in config file!\n", e.message());
+            io::stderr().write(formated_error.as_bytes()).await.unwrap();
+            return Err(Error::ConfigParsingError);
+        },
+    };
+
+    return Ok(file_config);
+}
+
+pub async fn get_auth_config(path: &Path) -> Result<AuthConfig, Error> {
+    let file_contents = match fs::read_to_string(path).await {
+        Ok(file_contents) => file_contents,
+        Err(_) => {
+            let formated_error = format!("Failed to read auth file at path {}\n", path.to_string_lossy());
+            io::stderr().write(formated_error.as_bytes()).await.unwrap();
+            return Err(Error::IOError);
+        },
+    };
+
+    let file_config: AuthConfig = match toml::from_str(&file_contents) {
+        Ok(file_config) => file_config,
+        Err(e) => {
+            let formated_error = format!("{} in auth file!\n", e.message());
             io::stderr().write(formated_error.as_bytes()).await.unwrap();
             return Err(Error::ConfigParsingError);
         },

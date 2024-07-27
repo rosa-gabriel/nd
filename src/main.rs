@@ -1,12 +1,15 @@
+mod auth;
 mod command;
 mod config_parser;
 mod errors;
 mod request;
 
+use auth::generate_token_from_config;
 use clap::Parser;
-use config_parser::get_file_config;
+use config_parser::{get_auth_config, get_file_config};
 use request::{execute_request, RequestOptions};
 use reqwest::Method;
+use std::collections::HashMap;
 use std::error::Error;
 use std::{path::Path, str::FromStr, time::Duration};
 use tokio::fs;
@@ -50,8 +53,7 @@ pub async fn main() -> () {
                 },
                 "value" => Some(body.value),
                 &_ => {
-                    let formated_error = format!("Invalid body kind in config\n");
-                    stderr.write(formated_error.as_bytes()).await.unwrap();
+                    stderr.write("Invalid body kind in config\n".as_bytes()).await.unwrap();
                     return;
                 }
             },
@@ -65,13 +67,50 @@ pub async fn main() -> () {
         None => None,
     };
 
-    let options = RequestOptions {
+    let mut options = RequestOptions {
         method: Method::from_str(&file_config.method).unwrap(),
         url: String::from(file_config.url),
         headers: file_config.headers,
         body,
         timeout,
         form: file_config.form,
+    };
+
+    match file_config.auth {
+        Some(auth_file_path) => {
+            let auth_file_path = Path::new(&auth_file_path);
+            let auth_file_config = match get_auth_config(&auth_file_path).await {
+                Ok(auth_file_config) => auth_file_config,
+                _ => return,
+            };
+
+            let (header_name, token) = match generate_token_from_config(auth_file_config) {
+                Ok(token) => {
+                    let header_name = match token.0 {
+                        Some(header_name) => header_name,
+                        None => "Authorization".to_string(),
+                    };
+
+                    (header_name, token.1)
+                },
+                Err(_) => {
+                    stderr.write("Failed to generate token\n".as_bytes()).await.unwrap();
+                    return;
+                },
+            };
+
+            match &mut options.headers {
+                Some(headers) => {
+                    headers.insert(header_name, token);
+                }
+                None => {
+                    let mut headers = HashMap::new();
+                    headers.insert(header_name, token);
+                    options.headers = Some(headers);
+                }
+            };
+        }
+        None => {}
     };
 
     let response = match execute_request(options).await {
@@ -93,16 +132,17 @@ pub async fn main() -> () {
 
     if args.verbose_response {
         let status = response.status();
-        let headers: String = response.headers().clone().iter().map(|header| {
-            format!("{}: {:?}\n", header.0, header.1)
-        }).collect();
+        let headers: String = response
+            .headers()
+            .clone()
+            .iter()
+            .map(|header| format!("{}: {:?}\n", header.0, header.1))
+            .collect();
         let body = response.text().await.unwrap();
 
         response_messsage = format!(
             "\nSTATUS\n---\n{}\n\nHEADERS\n---\n{}\nBODY\n---\n{}",
-            status,
-            headers,
-            body
+            status, headers, body
         );
     } else {
         response_messsage = response.text().await.unwrap();
