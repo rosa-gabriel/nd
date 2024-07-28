@@ -21,12 +21,20 @@ pub struct BasicAuthConfig {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct OAuth2Config {
+    pub client_id: String,
+    pub client_secret: Option<String>,
+    pub issuer_url: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct AuthConfig {
     pub resource: String,
     pub kind: String,
     pub basic: Option<BasicAuthConfig>,
     pub bearer: Option<String>,
     pub header_name: Option<String>,
+    pub oauth2: Option<OAuth2Config>
 }
 
 #[derive(Deserialize, Debug)]

@@ -84,7 +84,7 @@ pub async fn main() -> () {
                 _ => return,
             };
 
-            let (header_name, token) = match generate_token_from_config(auth_file_config) {
+            let (header_name, token) = match generate_token_from_config(auth_file_config).await {
                 Ok(token) => {
                     let header_name = match token.0 {
                         Some(header_name) => header_name,
