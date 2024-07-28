@@ -1,6 +1,6 @@
 # ND
 
-ND is a project to create a CLI tool capable of replacing [Postman](https://github.com/postmanlabs) for day-to-day development in a terminal-centered development environment.
+ND is a project to create a CLI tool capable of replacing [postman](https://github.com/postmanlabs) for day-to-day development in a terminal-centered environment.
 
 You can check the command's documentation by running the command:
 
